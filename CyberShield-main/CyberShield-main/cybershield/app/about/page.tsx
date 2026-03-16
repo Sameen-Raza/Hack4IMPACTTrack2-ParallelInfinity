@@ -183,58 +183,6 @@ export default function About() {
         </div>
       </div>
 
-      {/* ── Team ── */}
-      <div style={{ marginBottom: '4rem' }}>
-        <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: '700', marginBottom: '0.5rem', textAlign: 'center' }}>
-          Meet the <span style={{ color: '#07d2f8' }}>Team</span>
-        </h2>
-        <p style={{ color: '#8994a9', textAlign: 'center', fontSize: '0.88rem', marginBottom: '2rem' }}>
-          The people behind CyberShield.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: '1rem' }}>
-          {team.map((member, i) => (
-            <div key={i} style={{
-              background: 'rgba(7,210,248,0.03)',
-              border: '1px solid rgba(7,210,248,0.15)',
-              borderRadius: '14px', padding: '1.6rem',
-              textAlign: 'center', backdropFilter: 'blur(10px)',
-              position: 'relative', overflow: 'hidden',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-            }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLDivElement;
-                el.style.transform = 'translateY(-4px)';
-                el.style.boxShadow = '0 8px 24px rgba(7,210,248,0.1)';
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLDivElement;
-                el.style.transform = 'translateY(0)';
-                el.style.boxShadow = 'none';
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
-                background: 'linear-gradient(90deg, transparent, #07d2f8, transparent)',
-              }} />
-              <div style={{
-                width: '60px', height: '60px', borderRadius: '50%',
-                background: 'rgba(7,210,248,0.1)',
-                border: '2px solid rgba(7,210,248,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '1.8rem', margin: '0 auto 1rem',
-              }}>
-                {member.avatar}
-              </div>
-              <div style={{ color: '#fff', fontWeight: '600', fontSize: '0.95rem', marginBottom: '0.3rem' }}>
-                {member.name}
-              </div>
-              <div style={{ color: '#07d2f8', fontSize: '0.78rem' }}>
-                {member.role}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ── Contact ── */}
       <div style={{

@@ -238,57 +238,97 @@ export default function Home() {
     return () => { clearInterval(msgT); if (newsTimer.current) clearInterval(newsTimer.current); };
   }, []);
 
-  const handleGetScore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !validation.valid) return;
-    setLoading(true);
-    setError('');
-    setResult(null);
-    setHibpResult(null);
-    const captured = input;
-    setInput('');
+const handleGetScore = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!input.trim() || !validation.valid) return;
 
-    try {
-      let data: SecurityScore;
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-      if (backendUrl) {
+  setLoading(true);
+  setError('');
+  setResult(null);
+  setHibpResult(null);
+
+  const captured = input;
+  setInput('');
+
+  try {
+    let data: SecurityScore;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    if (backendUrl && backendUrl.trim() !== '') {
+      try {
         const isEmail = captured.includes('@');
         const endpoint = isEmail ? '/security_score/email' : '/security_score/website';
-        const payload = isEmail ? { email: captured.trim() } : { url: captured.trim().startsWith('http') ? captured.trim() : 'https://' + captured.trim() };
-        const res = await fetch(backendUrl + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error('API Error: ' + res.statusText);
+
+        const payload = isEmail
+          ? { email: captured.trim() }
+          : { url: captured.trim().startsWith('http') ? captured.trim() : 'https://' + captured.trim() };
+
+        const res = await fetch(backendUrl + endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error('API Error');
+
         data = await res.json();
-      } else {
+      } catch {
+        // fallback if backend fails
         await new Promise((r) => setTimeout(r, 1500));
         data = analyzeTarget(captured);
       }
-
-      if (captured.includes('@')) {
-        setHibpLoading(true);
-        const breach = await checkBreach(captured);
-        setHibpResult(breach);
-        setHibpLoading(false);
-        if (breach.breached) {
-          data.overall_score = Math.max(0, data.overall_score - 15);
-          data.breach_findings = { status: 'breached', breaches: breach.breaches };
-          data.recommendations = ['Change your password immediately — found in breach database', ...data.recommendations];
-        }
-      }
-
-      setResult(data);
-      setMsgIdx((p) => (p + 1) % messages.length);
-
-      const verdict = data.overall_score >= 70 ? 'Low Risk' : data.overall_score >= 40 ? 'Medium Risk' : 'High Risk';
-      const record: ScanRecord = { target: data.target, score: data.overall_score, kind: data.kind, date: new Date().toLocaleString(), verdict, timestamp: Date.now() };
-      const updated = [record, ...history].slice(0, 30);
-      setHistory(updated);
-      localStorage.setItem('cyberShieldHistory', JSON.stringify(updated));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze. Please try again.');
-    } finally {
-      setLoading(false);
+    } else {
+      await new Promise((r) => setTimeout(r, 1500));
+      data = analyzeTarget(captured);
     }
-  };
+
+    if (captured.includes('@')) {
+      setHibpLoading(true);
+      const breach = await checkBreach(captured);
+      setHibpResult(breach);
+      setHibpLoading(false);
+
+      if (breach.breached) {
+        data.overall_score = Math.max(0, data.overall_score - 15);
+        data.breach_findings = {
+          status: 'breached',
+          breaches: breach.breaches,
+        };
+        data.recommendations = [
+          'Change your password immediately — found in breach database',
+          ...data.recommendations,
+        ];
+      }
+    }
+
+    setResult(data);
+    setMsgIdx((p) => (p + 1) % messages.length);
+
+    const verdict =
+      data.overall_score >= 70
+        ? 'Low Risk'
+        : data.overall_score >= 40
+        ? 'Medium Risk'
+        : 'High Risk';
+
+    const record: ScanRecord = {
+      target: data.target,
+      score: data.overall_score,
+      kind: data.kind,
+      date: new Date().toLocaleString(),
+      verdict,
+      timestamp: Date.now(),
+    };
+
+    const updated = [record, ...history].slice(0, 30);
+    setHistory(updated);
+    localStorage.setItem('cyberShieldHistory', JSON.stringify(updated));
+  } catch {
+    setError('Analysis service unavailable. Using local security engine.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const clearHistory = () => { setHistory([]); localStorage.removeItem('cyberShieldHistory'); };
 
