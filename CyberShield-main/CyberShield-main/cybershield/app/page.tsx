@@ -273,7 +273,7 @@ export default function Home() {
                 Component Breakdown
               </p>
               {result.components.map((comp, idx) => {
-                const displayScore = comp.name === 'Email Exposure' ? 100 - comp.score : comp.score;
+                const displayScore = comp.score;
                 const cc = displayScore >= 70 ? '#4caf50' : displayScore >= 40 ? '#ff9800' : '#f44336';
                 return (
                   <div key={idx} style={{ marginBottom: idx < result.components.length - 1 ? '1.1rem' : 0 }}>
