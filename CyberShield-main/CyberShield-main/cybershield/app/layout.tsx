@@ -74,6 +74,7 @@ export default function RootLayout({
                { name: "How it Works", href: "/how-it-works" },
                { name: "Features", href: "/features" },
                { name: "Password Checker", href: "/password-checker" },
+               { name: "Phishing Checker", href: "/phishing-checker" },
                { name: "SMB Assessment", href: "/smb-assessment" },
                { name: "About Us", href: "/about" },
 
