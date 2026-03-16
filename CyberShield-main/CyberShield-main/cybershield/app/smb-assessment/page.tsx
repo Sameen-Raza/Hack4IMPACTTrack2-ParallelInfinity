@@ -2,937 +2,412 @@
 
 import { useState } from 'react';
 
-const INDUSTRIES = [
-  "Technology & Software Development",
-  "Healthcare & Medical",
-  "Finance & Banking",
-  "Retail & E-commerce",
-  "Manufacturing",
-  "Education",
-  "Professional Services",
-  "Hospitality & Tourism",
-  "Real Estate",
-  "Legal Services",
-  "Other"
-];
-
-const EMPLOYEE_COUNTS = [
-  "1-10",
-  "10-20",
-  "21-50",
-  "51-100",
-  "101-250",
-  "251-500",
-  "500+"
-];
-
-const SECURITY_PRIORITIES = [
-  "Data Protection & Privacy",
-  "Employee Training & Awareness",
-  "Network Security",
-  "Compliance & Regulations",
-  "Incident Response",
-  "Access Control",
-  "Cloud Security",
-  "Ransomware Protection"
-];
-
-// CSV Parsing and Validation Functions
-const parseCSV = (content: string) => {
-  const lines = content.trim().split('\n');
-  if (lines.length < 2) throw new Error('CSV file must contain headers and at least one row');
-  
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-  const rows = lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim());
-    const obj: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      obj[header] = values[index] || '';
-    });
-    return obj;
-  });
-  
-  return { headers, rows };
+// ── Shared styles ── (moved outside)
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '0.8rem 1rem',
+  background: 'rgba(0,0,0,0.35)',
+  border: '1px solid rgba(7,210,248,0.25)',
+  borderRadius: '8px', color: '#fff',
+  fontSize: '0.9rem', outline: 'none',
+  boxSizing: 'border-box',
 };
 
-const validateEmployeeCSV = (data: any[]): { valid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-  
-  if (data.length === 0) {
-    errors.push('Employee CSV must contain at least one employee');
-    return { valid: false, errors };
-  }
-  
-  data.forEach((row, index) => {
-    if (!row.email && !row.Email) {
-      errors.push(`Row ${index + 2}: Missing email column`);
-    } else {
-      const email = row.email || row.Email;
-      if (!email.includes('@')) {
-        errors.push(`Row ${index + 2}: Invalid email format - ${email}`);
-      }
-    }
-    
-    if (!row.name && !row.Name) {
-      errors.push(`Row ${index + 2}: Missing name column`);
-    }
-  });
-  
-  return { valid: errors.length === 0, errors };
+const labelStyle: React.CSSProperties = {
+  display: 'block', color: '#8994a9',
+  fontSize: '0.75rem', letterSpacing: '0.8px',
+  textTransform: 'uppercase', marginBottom: '0.45rem',
 };
 
-const validateAssetCSV = (data: any[]): { valid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-  
-  if (data.length === 0) {
-    errors.push('Asset CSV must contain at least one asset');
-    return { valid: false, errors };
-  }
-  
-  data.forEach((row, index) => {
-    if (!row.url && !row.URL) {
-      errors.push(`Row ${index + 2}: Missing URL column`);
-    } else {
-      const url = row.url || row.URL;
-      try {
-        new URL(url.startsWith('http') ? url : `https://${url}`);
-      } catch {
-        errors.push(`Row ${index + 2}: Invalid URL format - ${url}`);
-      }
-    }
-    
-    if (!row.asset_type && !row.type && !row.Type) {
-      errors.push(`Row ${index + 2}: Missing asset_type column`);
-    }
-  });
-  
-  return { valid: errors.length === 0, errors };
-};
+// ── Sub-components defined OUTSIDE to prevent remount on every keystroke ──
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div style={{ marginBottom: '1.4rem' }}>
+    <label style={labelStyle}>{label}</label>
+    {children}
+  </div>
+);
 
-const normalizeEmployee = (row: any) => ({
-  name: row.name || row.Name || 'N/A',
-  email: row.email || row.Email || '',
-  role: row.role || row.Role || 'Employee'
-});
+const RadioGroup = ({
+  field, options, value, onChange,
+}: {
+  field: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (field: string, val: string) => void;
+}) => (
+  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+    {options.map((o) => {
+      const active = value === o.value;
+      return (
+        <button key={o.value} type="button" onClick={() => onChange(field, o.value)}
+          style={{
+            padding: '0.5rem 1.1rem', borderRadius: '999px',
+            border: `1px solid ${active ? '#07d2f8' : 'rgba(7,210,248,0.2)'}`,
+            background: active ? 'rgba(7,210,248,0.12)' : 'transparent',
+            color: active ? '#07d2f8' : '#8994a9',
+            fontSize: '0.82rem', fontWeight: active ? '600' : '400',
+            cursor: 'pointer', transition: 'all 0.15s ease',
+          }}>
+          {o.label}
+        </button>
+      );
+    })}
+  </div>
+);
 
-const normalizeAsset = (row: any) => ({
-  url: row.url || row.URL || '',
-  asset_type: row.asset_type || row.type || row.Type || 'Website'
-});
-
+// ── Main component ──────────────────────────────────────────────────────────
 export default function SMBAssessment() {
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    company_name: '',
-    company_url: '',
-    industry: '',
-    employee_count: '',
-    contact_name: '',
-    contact_email: '',
-    security_priorities: [] as string[],
-  });
-  const [files, setFiles] = useState({
-    employees: null as File | null,
-    assets: null as File | null,
-  });
-  const [result, setResult] = useState<any>(null);
-  const [csvData, setCSVData] = useState({
-    employees: null as any[] | null,
-    assets: null as any[] | null,
-  });
-  const [validationErrors, setValidationErrors] = useState({
-    employees: [] as string[],
-    assets: [] as string[],
+  const [form, setForm] = useState({
+    companyName: '', companyUrl: '', industry: '', employees: '',
+    hasFirewall: '', hasMFA: '', lastAudit: '', encryptData: '',
+    incidentPlan: '', backupFreq: '', remoteWork: '', securityTraining: '',
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.currentTarget;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const update = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const calcScore = () => {
+    let s = 60;
+    if (form.hasFirewall === 'yes')        s += 8;
+    if (form.hasMFA === 'yes')             s += 10;
+    if (form.encryptData === 'yes')        s += 8;
+    if (form.incidentPlan === 'yes')       s += 7;
+    if (form.backupFreq === 'daily')       s += 5;
+    else if (form.backupFreq === 'weekly') s += 3;
+    if (form.securityTraining === 'yes')   s += 7;
+    if (form.lastAudit === 'recent')       s += 5;
+    return Math.min(s, 100);
   };
 
-  const handlePriorityToggle = (priority: string) => {
-    setFormData(prev => ({
-      ...prev,
-      security_priorities: prev.security_priorities.includes(priority)
-        ? prev.security_priorities.filter(p => p !== priority)
-        : [...prev.security_priorities, priority]
-    }));
-  };
+  const score = step === 3 ? calcScore() : 0;
+  const verdict =
+    score >= 85 ? { label: 'Excellent',  color: '#4caf50', icon: '🛡️' } :
+    score >= 70 ? { label: 'Good',        color: '#2196f3', icon: '✅' } :
+    score >= 50 ? { label: 'Needs Work',  color: '#ff9800', icon: '⚠️' } :
+                  { label: 'At Risk',     color: '#f44336', icon: '🚨' };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fileType: 'employees' | 'assets') => {
-    if (e.currentTarget.files && e.currentTarget.files[0]) {
-      const file = e.currentTarget.files[0];
-      setFiles(prev => ({
-        ...prev,
-        [fileType]: file
-      }));
+  const recommendations = [
+    { cond: form.hasFirewall !== 'yes',      text: 'Deploy and configure a business-grade firewall.' },
+    { cond: form.hasMFA !== 'yes',           text: 'Enable Multi-Factor Authentication across all accounts.' },
+    { cond: form.encryptData !== 'yes',      text: 'Encrypt sensitive data at rest and in transit.' },
+    { cond: form.incidentPlan !== 'yes',     text: 'Create a formal incident response plan.' },
+    { cond: form.backupFreq !== 'daily',     text: 'Implement daily automated backups.' },
+    { cond: form.securityTraining !== 'yes', text: 'Run regular employee security awareness training.' },
+    { cond: form.lastAudit !== 'recent',     text: 'Schedule a professional security audit.' },
+  ].filter((r) => r.cond).map((r) => r.text);
 
-      // Read and parse CSV
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const content = event.target?.result as string;
-          const { rows } = parseCSV(content);
-          
-          let validation;
-          let normalizedData;
-          
-          if (fileType === 'employees') {
-            validation = validateEmployeeCSV(rows);
-            normalizedData = rows.map(normalizeEmployee);
-          } else {
-            validation = validateAssetCSV(rows);
-            normalizedData = rows.map(normalizeAsset);
-          }
-          
-          if (!validation.valid) {
-            setValidationErrors(prev => ({
-              ...prev,
-              [fileType]: validation.errors
-            }));
-            setCSVData(prev => ({
-              ...prev,
-              [fileType]: null
-            }));
-          } else {
-            setValidationErrors(prev => ({
-              ...prev,
-              [fileType]: []
-            }));
-            setCSVData(prev => ({
-              ...prev,
-              [fileType]: normalizedData
-            }));
-          }
-        } catch (error) {
-          setValidationErrors(prev => ({
-            ...prev,
-            [fileType]: [error instanceof Error ? error.message : 'Failed to parse CSV']
-          }));
-          setCSVData(prev => ({
-            ...prev,
-            [fileType]: null
-          }));
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('Backend URL not configured');
-      }
-
-      const employees = csvData.employees ?? [];
-      const assets = csvData.assets ?? [];
-
-      if (employees.length === 0 && assets.length === 0) {
-        throw new Error('Please upload at least one employee CSV or one asset CSV before submitting.');
-      }
-
-      const requestData = {
-        company_name: formData.company_name,
-        industry: formData.industry,
-        employee_count: formData.employee_count,
-        contact_name: formData.contact_name,
-        contact_email: formData.contact_email,
-        security_priorities: formData.security_priorities,
-        employees_data: employees,
-        assets_data: assets
-      };
-
-      const response = await fetch(`${backendUrl}/smb/report/json`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      setResult(data);
-
-    } catch (error) {
-      console.error('Error:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error while generating report');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputStyles = {
-    padding: '0.875rem 1rem',
-    fontSize: '0.95rem',
-    border: '1px solid #8994a9',
-    borderRadius: '6px',
-    backgroundColor: '#1a1a1a',
-    color: '#fff',
-    outline: 'none' as const,
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    boxSizing: 'border-box' as const,
-    fontFamily: 'inherit',
-  };
-
-  const inputFocusStyle = {
-    borderColor: '#07d2f8',
-    boxShadow: '0 0 0 2px rgba(7, 210, 248, 0.1)',
-  };
-
-  const labelStyles = {
-    display: 'block',
-    color: '#fff',
-    marginBottom: '0.5rem',
-    fontWeight: '500' as const,
-    fontSize: '0.95rem',
-  };
-
-  const containerStyles = {
-    marginBottom: '1.5rem',
-  };
-
-  if (result) {
-    return (
-      <div style={{ minHeight: 'calc(100vh - 70px)', padding: '3rem 2rem', position: 'relative', zIndex: 5 }}>
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          {/* Success Message */}
-          <div style={{
-            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-            border: '2px solid #4caf50',
-            borderRadius: '12px',
-            padding: '2rem',
-            marginBottom: '2rem',
-            textAlign: 'center'
-          }}>
-            <h2 style={{ color: '#4caf50', marginTop: 0, marginBottom: '1rem' }}>✅ Report Generated Successfully!</h2>
-            <p style={{ color: '#8994a9', marginBottom: '1.5rem' }}>
-              Your SMB security assessment report has been created and is ready for download.
-            </p>
-          </div>
-
-          {/* Report Summary */}
-          <div style={{
-            backgroundColor: 'rgba(6, 6, 8, 0.6)',
-            border: '1px solid #8994a9',
-            borderRadius: '12px',
-            padding: '2rem',
-            marginBottom: '2rem'
-          }}>
-            <h3 style={{ color: '#07d2f8', marginTop: 0 }}>Report Summary for {result.summary.company_name}</h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div style={{
-                backgroundColor: 'rgba(7, 210, 248, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                borderLeft: '4px solid #07d2f8'
-              }}>
-                <p style={{ color: '#8994a9', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Employees Scanned</p>
-                <p style={{ color: '#fff', fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{result.summary.total_employees}</p>
-              </div>
-
-              <div style={{
-                backgroundColor: 'rgba(7, 210, 248, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                borderLeft: '4px solid #07d2f8'
-              }}>
-                <p style={{ color: '#8994a9', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Assets Scanned</p>
-                <p style={{ color: '#fff', fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{result.summary.total_assets}</p>
-              </div>
-
-              <div style={{
-                backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                borderLeft: '4px solid #f44336'
-              }}>
-                <p style={{ color: '#8994a9', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Breached Emails Found</p>
-                <p style={{ color: '#f44336', fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{result.summary.breached_emails}</p>
-              </div>
-
-              <div style={{
-                backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                borderLeft: '4px solid #f44336'
-              }}>
-                <p style={{ color: '#8994a9', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Insecure Assets</p>
-                <p style={{ color: '#f44336', fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{result.summary.insecure_assets}</p>
-              </div>
-            </div>
-
-            <p style={{ color: '#8994a9', fontSize: '0.9rem', margin: 0 }}>
-              Report ID: <span style={{ color: '#07d2f8', fontWeight: 'bold' }}>{result.report_id}</span> | 
-              Generated: {result.summary.timestamp}
-            </p>
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={() => {
-                setResult(null);
-                setStep(1);
-                setFormData({
-                  company_name: '',
-                  company_url: '',
-                  industry: '',
-                  employee_count: '',
-                  contact_name: '',
-                  contact_email: '',
-                  security_priorities: [],
-                });
-                setFiles({ employees: null, assets: null });
-              }}
-              style={{
-                flex: 1,
-                padding: '1rem',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                backgroundColor: '#07d2f8',
-                color: '#060608',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'background-color 0.3s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#00b8d4'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#07d2f8'}
-            >
-              Create Another Assessment
-            </button>
-            <button
-              onClick={() => {
-                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-                if (result.report_id && backendUrl) {
-                  window.open(`${backendUrl}/smb/download/${result.report_id}`, '_blank');
-                }
-              }}
-              style={{
-                flex: 1,
-                padding: '1rem',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-                backgroundColor: 'transparent',
-                color: '#07d2f8',
-                border: '2px solid #07d2f8',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.3s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(7, 210, 248, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              Download Report
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const step1Valid = form.companyName && form.companyUrl && form.industry && form.employees;
+  const step2Valid = form.hasFirewall && form.hasMFA && form.lastAudit &&
+                     form.encryptData && form.incidentPlan && form.backupFreq &&
+                     form.remoteWork && form.securityTraining;
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 70px)', padding: '3rem 2rem', position: 'relative', zIndex: 5 }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 style={{
-            fontSize: '2.5rem',
-            fontWeight: 'bold',
-            color: '#fff',
-            marginBottom: '1rem',
-            lineHeight: '1.2'
-          }}>
+    <div style={{ minHeight: 'calc(100vh - 70px)', padding: '3rem 2rem' }}>
+      <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+
+        {/* Title */}
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '64px', height: '64px', borderRadius: '16px',
+            background: 'rgba(7,210,248,0.1)', border: '1px solid rgba(7,210,248,0.3)',
+            fontSize: '2rem', marginBottom: '1rem',
+            boxShadow: '0 0 24px rgba(7,210,248,0.15)',
+          }}>🏢</div>
+          <h1 style={{ color: '#fff', fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' }}>
             SMB Security Assessment
           </h1>
-          <p style={{
-            color: '#8994a9',
-            fontSize: '1.1rem',
-            marginBottom: '2rem'
-          }}>
-            Get a comprehensive security analysis for your organization
+          <p style={{ color: '#8994a9', fontSize: '0.9rem' }}>
+            Get a comprehensive security analysis for your organization in 3 steps.
           </p>
-
-          {error && (
-            <div style={{
-              backgroundColor: 'rgba(244, 67, 54, 0.1)',
-              border: '1px solid #f44336',
-              color: '#f44336',
-              padding: '0.75rem 1rem',
-              borderRadius: '8px',
-              maxWidth: '600px',
-              margin: '0 auto 1.5rem',
-              fontSize: '0.95rem'
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Progress Indicator */}
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '2rem' }}>
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  backgroundColor: s <= step ? '#07d2f8' : '#1a1a1a',
-                  color: s <= step ? '#060608' : '#8994a9',
-                  border: `2px solid ${s <= step ? '#07d2f8' : '#8994a9'}`,
-                  transition: 'all 0.3s'
-                }}
-              >
-                {s}
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          {/* Step 1: Company Information */}
+        {/* Stepper */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem' }}>
+          {[
+            { n: 1, label: 'Company Info' },
+            { n: 2, label: 'Security Posture' },
+            { n: 3, label: 'Results' },
+          ].map((s, i) => {
+            const done   = step > s.n;
+            const active = step === s.n;
+            const color  = done || active ? '#07d2f8' : 'rgba(7,210,248,0.25)';
+            return (
+              <div key={s.n} style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    border: `2px solid ${color}`,
+                    background: active ? '#07d2f8' : done ? 'rgba(7,210,248,0.15)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: active ? '#000' : color,
+                    fontWeight: '700', fontSize: '0.85rem',
+                    boxShadow: active ? '0 0 16px rgba(7,210,248,0.4)' : 'none',
+                    transition: 'all 0.3s',
+                  }}>
+                    {done ? '✓' : s.n}
+                  </div>
+                  <div style={{ color: active ? '#07d2f8' : '#8994a9', fontSize: '0.7rem', marginTop: '4px', whiteSpace: 'nowrap' }}>
+                    {s.label}
+                  </div>
+                </div>
+                {i < 2 && (
+                  <div style={{
+                    width: '80px', height: '1px', margin: '0 6px 20px',
+                    background: step > s.n ? '#07d2f8' : 'rgba(7,210,248,0.15)',
+                    transition: 'background 0.3s',
+                  }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Card */}
+        <div style={{
+          background: 'rgba(7,210,248,0.03)',
+          border: '1px solid rgba(7,210,248,0.2)',
+          borderRadius: '16px', padding: '2rem',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+            background: 'linear-gradient(90deg,transparent,#07d2f8,transparent)',
+          }} />
+
+          {/* STEP 1 */}
           {step === 1 && (
-            <div style={{
-              backgroundColor: 'rgba(6, 6, 8, 0.6)',
-              border: '1px solid #8994a9',
-              borderRadius: '12px',
-              padding: '2rem'
-            }}>
-              <h2 style={{ color: '#07d2f8', marginTop: 0 }}>Company Information</h2>
+            <>
+              <h2 style={{ color: '#07d2f8', fontSize: '1.1rem', marginBottom: '1.6rem', fontWeight: '600' }}>
+                🏢 Company Information
+              </h2>
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Company Name *</label>
+              <Field label="Company Name *">
                 <input
-                  type="text"
-                  name="company_name"
-                  value={formData.company_name}
-                  onChange={handleInputChange}
-                  placeholder="Enter your company name"
-                  required
-                  style={inputStyles}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
+                  style={inputStyle}
+                  placeholder="Acme Corp"
+                  value={form.companyName}
+                  onChange={(e) => update('companyName', e.target.value)}
                 />
-              </div>
+              </Field>
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Company URL *</label>
+              <Field label="Company Website *">
                 <input
-                  type="url"
-                  name="company_url"
-                  value={formData.company_url}
-                  onChange={handleInputChange}
+                  style={inputStyle}
                   placeholder="https://www.yourcompany.com"
-                  required
-                  style={inputStyles}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
+                  value={form.companyUrl}
+                  onChange={(e) => update('companyUrl', e.target.value)}
                 />
+              </Field>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <Field label="Industry *">
+                  <select
+                    style={{ ...inputStyle, appearance: 'none' }}
+                    value={form.industry}
+                    onChange={(e) => update('industry', e.target.value)}
+                  >
+                    <option value="">Select...</option>
+                    {['Finance','Healthcare','Retail','Technology','Education',
+                      'Manufacturing','Legal','Other'].map((v) => (
+                      <option key={v} value={v.toLowerCase()}>{v}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Number of Employees *">
+                  <select
+                    style={{ ...inputStyle, appearance: 'none' }}
+                    value={form.employees}
+                    onChange={(e) => update('employees', e.target.value)}
+                  >
+                    <option value="">Select...</option>
+                    {['1–10','11–50','51–200','201–500','500+'].map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </Field>
               </div>
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Industry *</label>
-                <select
-                  name="industry"
-                  value={formData.industry}
-                  onChange={handleInputChange}
-                  required
-                  style={{...inputStyles, cursor: 'pointer'}}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <option value="">Select an industry...</option>
-                  {INDUSTRIES.map(ind => (
-                    <option key={ind} value={ind} style={{ backgroundColor: '#1a1a1a', color: '#fff' }}>
-                      {ind}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={containerStyles}>
-                <label style={labelStyles}>Number of Employees *</label>
-                <select
-                  name="employee_count"
-                  value={formData.employee_count}
-                  onChange={handleInputChange}
-                  required
-                  style={{...inputStyles, cursor: 'pointer'}}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <option value="">Select employee count...</option>
-                  {EMPLOYEE_COUNTS.map(count => (
-                    <option key={count} value={count} style={{ backgroundColor: '#1a1a1a', color: '#fff' }}>
-                      {count}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  disabled={!formData.company_name || !formData.company_url || !formData.industry || !formData.employee_count}
-                  style={{
-                    flex: 1,
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
-                    backgroundColor: (!formData.company_name || !formData.company_url || !formData.industry || !formData.employee_count) ? '#666' : '#07d2f8',
-                    color: '#060608',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: (!formData.company_name || !formData.company_url || !formData.industry || !formData.employee_count) ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!(!formData.company_name || !formData.company_url || !formData.industry || !formData.employee_count)) {
-                      e.currentTarget.style.backgroundColor = '#00b8d4';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!(!formData.company_name || !formData.company_url || !formData.industry || !formData.employee_count)) {
-                      e.currentTarget.style.backgroundColor = '#07d2f8';
-                    }
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
+              <button
+                onClick={() => step1Valid && setStep(2)}
+                style={{
+                  width: '100%', padding: '0.9rem',
+                  backgroundColor: step1Valid ? '#07d2f8' : '#333',
+                  color: step1Valid ? '#000' : '#666',
+                  border: 'none', borderRadius: '10px',
+                  fontWeight: '700', fontSize: '0.95rem',
+                  cursor: step1Valid ? 'pointer' : 'not-allowed',
+                  marginTop: '0.5rem', transition: 'all 0.2s',
+                }}
+              >
+                Next → Security Posture
+              </button>
+            </>
           )}
 
-          {/* Step 2: Contact & Priorities */}
+          {/* STEP 2 */}
           {step === 2 && (
-            <div style={{
-              backgroundColor: 'rgba(6, 6, 8, 0.6)',
-              border: '1px solid #8994a9',
-              borderRadius: '12px',
-              padding: '2rem'
-            }}>
-              <h2 style={{ color: '#07d2f8', marginTop: 0 }}>Contact & Security Priorities</h2>
+            <>
+              <h2 style={{ color: '#07d2f8', fontSize: '1.1rem', marginBottom: '1.6rem', fontWeight: '600' }}>
+                🔒 Security Posture
+              </h2>
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Contact Name *</label>
-                <input
-                  type="text"
-                  name="contact_name"
-                  value={formData.contact_name}
-                  onChange={handleInputChange}
-                  placeholder="Full name of primary contact"
-                  required
-                  style={inputStyles}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                />
+              {[
+                { field: 'hasFirewall',      label: 'Do you have a firewall?',                    opts: [{ value:'yes', label:'Yes' },{ value:'no', label:'No' },{ value:'unsure', label:'Not sure' }] },
+                { field: 'hasMFA',           label: 'Multi-Factor Authentication (MFA) enabled?', opts: [{ value:'yes', label:'Yes' },{ value:'partial', label:'Partially' },{ value:'no', label:'No' }] },
+                { field: 'encryptData',      label: 'Is sensitive data encrypted?',               opts: [{ value:'yes', label:'Yes' },{ value:'no', label:'No' },{ value:'unsure', label:'Not sure' }] },
+                { field: 'backupFreq',       label: 'How often are backups performed?',           opts: [{ value:'daily', label:'Daily' },{ value:'weekly', label:'Weekly' },{ value:'monthly', label:'Monthly' },{ value:'never', label:'Never' }] },
+                { field: 'incidentPlan',     label: 'Do you have an incident response plan?',     opts: [{ value:'yes', label:'Yes' },{ value:'no', label:'No' }] },
+                { field: 'securityTraining', label: 'Regular employee security training?',        opts: [{ value:'yes', label:'Yes' },{ value:'no', label:'No' }] },
+                { field: 'remoteWork',       label: 'Do employees work remotely?',                opts: [{ value:'yes', label:'Yes' },{ value:'hybrid', label:'Hybrid' },{ value:'no', label:'No' }] },
+                { field: 'lastAudit',        label: 'Last professional security audit?',          opts: [{ value:'recent', label:'< 1 year' },{ value:'old', label:'1–3 years' },{ value:'never', label:'Never' }] },
+              ].map(({ field, label, opts }) => (
+                <Field key={field} label={label}>
+                  <RadioGroup
+                    field={field}
+                    options={opts}
+                    value={(form as any)[field]}
+                    onChange={update}
+                  />
+                </Field>
+              ))}
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button onClick={() => setStep(1)} style={{
+                  flex: 1, padding: '0.9rem',
+                  background: 'transparent',
+                  border: '1px solid rgba(7,210,248,0.3)',
+                  borderRadius: '10px', color: '#07d2f8',
+                  fontWeight: '600', cursor: 'pointer',
+                }}>
+                  ← Back
+                </button>
+                <button onClick={() => step2Valid && setStep(3)} style={{
+                  flex: 2, padding: '0.9rem',
+                  backgroundColor: step2Valid ? '#07d2f8' : '#333',
+                  color: step2Valid ? '#000' : '#666',
+                  border: 'none', borderRadius: '10px',
+                  fontWeight: '700', cursor: step2Valid ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                }}>
+                  Generate Report →
+                </button>
               </div>
+            </>
+          )}
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Contact Email *</label>
-                <input
-                  type="email"
-                  name="contact_email"
-                  value={formData.contact_email}
-                  onChange={handleInputChange}
-                  placeholder="company@example.com"
-                  required
-                  style={inputStyles}
-                  onFocus={(e) => Object.assign(e.currentTarget.style, inputFocusStyle)}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#8994a9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '2rem' }}>
-                <label style={labelStyles}>Security Priorities * (Select at least 2)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  {SECURITY_PRIORITIES.map(priority => (
-                    <label
-                      key={priority}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '0.75rem',
-                        backgroundColor: formData.security_priorities.includes(priority) ? 'rgba(7, 210, 248, 0.2)' : '#1a1a1a',
-                        border: `1px solid ${formData.security_priorities.includes(priority) ? '#07d2f8' : '#8994a9'}`,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!formData.security_priorities.includes(priority)) {
-                          (e.currentTarget as HTMLElement).style.borderColor = '#07d2f8';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!formData.security_priorities.includes(priority)) {
-                          (e.currentTarget as HTMLElement).style.borderColor = '#8994a9';
-                        }
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.security_priorities.includes(priority)}
-                        onChange={() => handlePriorityToggle(priority)}
-                        style={{ marginRight: '0.75rem', cursor: 'pointer', accentColor: '#07d2f8' }}
-                      />
-                      <span style={{ color: '#fff', fontSize: '0.9rem' }}>{priority}</span>
-                    </label>
-                  ))}
+          {/* STEP 3 */}
+          {step === 3 && (
+            <>
+              <div style={{
+                background: `rgba(${verdict.color === '#4caf50' ? '76,175,80' : verdict.color === '#2196f3' ? '33,150,243' : verdict.color === '#ff9800' ? '255,152,0' : '244,67,54'},0.08)`,
+                border: `1px solid ${verdict.color}44`,
+                borderRadius: '12px', padding: '1.4rem',
+                display: 'flex', alignItems: 'center', gap: '1.2rem',
+                marginBottom: '1.5rem',
+              }}>
+                <span style={{ fontSize: '2.5rem' }}>{verdict.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: verdict.color, fontWeight: '700', fontSize: '1.1rem' }}>
+                    {verdict.label} — {form.companyName}
+                  </div>
+                  <div style={{ color: '#8994a9', fontSize: '0.8rem', marginTop: '2px' }}>
+                    {form.industry} · {form.employees} employees
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: verdict.color, fontSize: '2.2rem', fontWeight: '700', lineHeight: 1 }}>
+                    {score}
+                  </div>
+                  <div style={{ color: '#8994a9', fontSize: '0.7rem' }}>/ 100</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  style={{
-                    flex: 1,
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
-                    backgroundColor: 'transparent',
-                    color: '#07d2f8',
-                    border: '2px solid #07d2f8',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(7, 210, 248, 0.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  disabled={!formData.contact_name || !formData.contact_email || formData.security_priorities.length < 2}
-                  style={{
-                    flex: 1,
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
-                    backgroundColor: (!formData.contact_name || !formData.contact_email || formData.security_priorities.length < 2) ? '#666' : '#07d2f8',
-                    color: '#060608',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: (!formData.contact_name || !formData.contact_email || formData.security_priorities.length < 2) ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.3s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!(!formData.contact_name || !formData.contact_email || formData.security_priorities.length < 2)) {
-                      e.currentTarget.style.backgroundColor = '#00b8d4';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!(!formData.contact_name || !formData.contact_email || formData.security_priorities.length < 2)) {
-                      e.currentTarget.style.backgroundColor = '#07d2f8';
-                    }
-                  }}
-                >
-                  Next →
-                </button>
+              <div style={{ marginBottom: '1.8rem' }}>
+                <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: `${score}%`,
+                    background: `linear-gradient(90deg, ${verdict.color}88, ${verdict.color})`,
+                    borderRadius: '4px', transition: 'width 0.8s ease',
+                  }} />
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Step 3: File Upload */}
-          {step === 3 && (
-            <div style={{
-              backgroundColor: 'rgba(6, 6, 8, 0.6)',
-              border: '1px solid #8994a9',
-              borderRadius: '12px',
-              padding: '2rem'
-            }}>
-              <h2 style={{ color: '#07d2f8', marginTop: 0 }}>Upload Security Data</h2>
-              <p style={{ color: '#8994a9', fontSize: '0.95rem', marginBottom: '2rem' }}>
-                Upload at least one CSV (employees or assets) so we can run the assessment.
-              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.8rem', marginBottom: '1.8rem' }}>
+                {[
+                  { icon: '🔥', label: 'Firewall', val: form.hasFirewall === 'yes' ? 'Active' : 'Missing' },
+                  { icon: '🔑', label: 'MFA',      val: form.hasMFA === 'yes' ? 'Enabled' : form.hasMFA === 'partial' ? 'Partial' : 'Disabled' },
+                  { icon: '💾', label: 'Backups',  val: form.backupFreq === 'daily' ? 'Daily' : form.backupFreq === 'weekly' ? 'Weekly' : 'Infrequent' },
+                ].map((stat) => (
+                  <div key={stat.label} style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(7,210,248,0.12)',
+                    borderRadius: '10px', padding: '0.9rem', textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: '1.3rem', marginBottom: '4px' }}>{stat.icon}</div>
+                    <div style={{ color: '#8994a9', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</div>
+                    <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: '600', marginTop: '2px' }}>{stat.val}</div>
+                  </div>
+                ))}
+              </div>
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Employee List (CSV)</label>
-                <p style={{ color: '#8994a9', fontSize: '0.85rem', marginBottom: '0.75rem', margin: 0 }}>
-                  Columns: name, email, role
-                </p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => handleFileChange(e, 'employees')}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '1rem',
-                    backgroundColor: '#1a1a1a',
-                    border: `1px dashed ${validationErrors.employees.length > 0 ? '#f44336' : '#8994a9'}`,
-                    borderRadius: '6px',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.2s',
-                    boxSizing: 'border-box' as const,
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#07d2f8'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = validationErrors.employees.length > 0 ? '#f44336' : '#8994a9'}
-                />
-                {validationErrors.employees.length > 0 && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    {validationErrors.employees.map((error, idx) => (
-                      <p key={idx} style={{ color: '#f44336', marginTop: '0.25rem', fontSize: '0.85rem' }}>
-                        ❌ {error}
-                      </p>
+              {recommendations.length > 0 ? (
+                <>
+                  <p style={{ color: '#8994a9', fontSize: '0.72rem', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.8rem' }}>
+                    Recommendations ({recommendations.length})
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '1.5rem' }}>
+                    {recommendations.map((r, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '0.7rem',
+                        padding: '0.7rem 0.9rem',
+                        background: 'rgba(255,152,0,0.05)',
+                        border: '1px solid rgba(255,152,0,0.15)',
+                        borderRadius: '8px',
+                      }}>
+                        <span style={{ color: '#ff9800', fontSize: '0.8rem', marginTop: '1px', flexShrink: 0 }}>⚠️</span>
+                        <span style={{ color: '#cbd5e1', fontSize: '0.83rem', lineHeight: '1.5' }}>{r}</span>
+                      </div>
                     ))}
                   </div>
-                )}
-                {files.employees && csvData.employees && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <p style={{ color: '#4caf50', marginTop: 0, fontSize: '0.9rem' }}>
-                      ✓ {files.employees.name} - {csvData.employees.length} employees
-                    </p>
-                  </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <div style={{
+                  padding: '1rem', borderRadius: '8px', textAlign: 'center',
+                  background: 'rgba(76,175,80,0.07)', border: '1px solid rgba(76,175,80,0.2)',
+                  color: '#4caf50', fontSize: '0.88rem', marginBottom: '1.5rem',
+                }}>
+                  🎉 Excellent security posture — no major gaps detected!
+                </div>
+              )}
 
-              <div style={containerStyles}>
-                <label style={labelStyles}>Asset List (CSV)</label>
-                <p style={{ color: '#8994a9', fontSize: '0.85rem', marginBottom: '0.75rem', margin: 0 }}>
-                  Columns: url, asset_type
-                </p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => handleFileChange(e, 'assets')}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '1rem',
-                    backgroundColor: '#1a1a1a',
-                    border: `1px dashed ${validationErrors.assets.length > 0 ? '#f44336' : '#8994a9'}`,
-                    borderRadius: '6px',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.2s',
-                    boxSizing: 'border-box' as const,
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#07d2f8'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = validationErrors.assets.length > 0 ? '#f44336' : '#8994a9'}
-                />
-                {validationErrors.assets.length > 0 && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    {validationErrors.assets.map((error, idx) => (
-                      <p key={idx} style={{ color: '#f44336', marginTop: '0.25rem', fontSize: '0.85rem' }}>
-                        ❌ {error}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                {files.assets && csvData.assets && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <p style={{ color: '#4caf50', marginTop: 0, fontSize: '0.9rem' }}>
-                      ✓ {files.assets.name} - {csvData.assets.length} assets
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  style={{
-                    flex: 1,
-                    padding: '1rem',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    backgroundColor: 'transparent',
-                    color: '#07d2f8',
-                    border: '1px solid #07d2f8',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(7, 210, 248, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  ← Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    padding: '1rem',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    backgroundColor: loading ? '#666' : '#07d2f8',
-                    color: '#060608',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading) {
-                      e.currentTarget.style.backgroundColor = '#00b8d4';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = loading ? '#666' : '#07d2f8';
-                  }}
-                >
-                  {loading ? 'Generating...' : 'Generate Report'}
-                </button>
-              </div>
-            </div>
+              <button
+                onClick={() => {
+                  setStep(1);
+                  setForm({ companyName:'', companyUrl:'', industry:'', employees:'',
+                    hasFirewall:'', hasMFA:'', lastAudit:'', encryptData:'',
+                    incidentPlan:'', backupFreq:'', remoteWork:'', securityTraining:'' });
+                }}
+                style={{
+                  width: '100%', padding: '0.85rem',
+                  background: 'transparent',
+                  border: '1px solid rgba(7,210,248,0.3)',
+                  borderRadius: '10px', color: '#07d2f8',
+                  fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(7,210,248,0.08)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                🔄 Start New Assessment
+              </button>
+            </>
           )}
-        </form>
+        </div>
+
+        <p style={{ textAlign: 'center', color: 'rgba(137,148,169,0.4)', fontSize: '0.73rem', marginTop: '1.2rem' }}>
+          🔒 Your data is never stored or shared with third parties.
+        </p>
       </div>
     </div>
   );
