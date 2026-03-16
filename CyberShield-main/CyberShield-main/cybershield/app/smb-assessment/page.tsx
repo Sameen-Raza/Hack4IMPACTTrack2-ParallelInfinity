@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-// ── Shared styles ── (moved outside)
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.8rem 1rem',
   background: 'rgba(0,0,0,0.35)',
@@ -18,7 +17,6 @@ const labelStyle: React.CSSProperties = {
   textTransform: 'uppercase', marginBottom: '0.45rem',
 };
 
-// ── Sub-components defined OUTSIDE to prevent remount on every keystroke ──
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div style={{ marginBottom: '1.4rem' }}>
     <label style={labelStyle}>{label}</label>
@@ -54,7 +52,6 @@ const RadioGroup = ({
   </div>
 );
 
-// ── Main component ──────────────────────────────────────────────────────────
 export default function SMBAssessment() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -101,10 +98,10 @@ export default function SMBAssessment() {
                      form.remoteWork && form.securityTraining;
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 70px)', padding: '3rem 2rem' }}>
+    <div style={{ minHeight: 'calc(100vh - 120px)', padding: '3rem 2rem' }}>
       <div style={{ maxWidth: '680px', margin: '0 auto' }}>
 
-        {/* Title */}
+        {/* ── Title ── */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -121,7 +118,7 @@ export default function SMBAssessment() {
           </p>
         </div>
 
-        {/* Stepper */}
+        {/* ── Stepper ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem' }}>
           {[
             { n: 1, label: 'Company Info' },
@@ -162,7 +159,7 @@ export default function SMBAssessment() {
           })}
         </div>
 
-        {/* Card */}
+        {/* ── Card ── */}
         <div style={{
           background: 'rgba(7,210,248,0.03)',
           border: '1px solid rgba(7,210,248,0.2)',
@@ -176,7 +173,7 @@ export default function SMBAssessment() {
             background: 'linear-gradient(90deg,transparent,#07d2f8,transparent)',
           }} />
 
-          {/* STEP 1 */}
+          {/* ── STEP 1 ── */}
           {step === 1 && (
             <>
               <h2 style={{ color: '#07d2f8', fontSize: '1.1rem', marginBottom: '1.6rem', fontWeight: '600' }}>
@@ -184,30 +181,19 @@ export default function SMBAssessment() {
               </h2>
 
               <Field label="Company Name *">
-                <input
-                  style={inputStyle}
-                  placeholder="Acme Corp"
-                  value={form.companyName}
-                  onChange={(e) => update('companyName', e.target.value)}
-                />
+                <input style={inputStyle} placeholder="Acme Corp"
+                  value={form.companyName} onChange={(e) => update('companyName', e.target.value)} />
               </Field>
 
               <Field label="Company Website *">
-                <input
-                  style={inputStyle}
-                  placeholder="https://www.yourcompany.com"
-                  value={form.companyUrl}
-                  onChange={(e) => update('companyUrl', e.target.value)}
-                />
+                <input style={inputStyle} placeholder="https://www.yourcompany.com"
+                  value={form.companyUrl} onChange={(e) => update('companyUrl', e.target.value)} />
               </Field>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <Field label="Industry *">
-                  <select
-                    style={{ ...inputStyle, appearance: 'none' }}
-                    value={form.industry}
-                    onChange={(e) => update('industry', e.target.value)}
-                  >
+                  <select style={{ ...inputStyle, appearance: 'none' }}
+                    value={form.industry} onChange={(e) => update('industry', e.target.value)}>
                     <option value="">Select...</option>
                     {['Finance','Healthcare','Retail','Technology','Education',
                       'Manufacturing','Legal','Other'].map((v) => (
@@ -216,11 +202,8 @@ export default function SMBAssessment() {
                   </select>
                 </Field>
                 <Field label="Number of Employees *">
-                  <select
-                    style={{ ...inputStyle, appearance: 'none' }}
-                    value={form.employees}
-                    onChange={(e) => update('employees', e.target.value)}
-                  >
+                  <select style={{ ...inputStyle, appearance: 'none' }}
+                    value={form.employees} onChange={(e) => update('employees', e.target.value)}>
                     <option value="">Select...</option>
                     {['1–10','11–50','51–200','201–500','500+'].map((v) => (
                       <option key={v} value={v}>{v}</option>
@@ -229,24 +212,21 @@ export default function SMBAssessment() {
                 </Field>
               </div>
 
-              <button
-                onClick={() => step1Valid && setStep(2)}
-                style={{
-                  width: '100%', padding: '0.9rem',
-                  backgroundColor: step1Valid ? '#07d2f8' : '#333',
-                  color: step1Valid ? '#000' : '#666',
-                  border: 'none', borderRadius: '10px',
-                  fontWeight: '700', fontSize: '0.95rem',
-                  cursor: step1Valid ? 'pointer' : 'not-allowed',
-                  marginTop: '0.5rem', transition: 'all 0.2s',
-                }}
-              >
+              <button onClick={() => step1Valid && setStep(2)} style={{
+                width: '100%', padding: '0.9rem',
+                backgroundColor: step1Valid ? '#07d2f8' : '#333',
+                color: step1Valid ? '#000' : '#666',
+                border: 'none', borderRadius: '10px',
+                fontWeight: '700', fontSize: '0.95rem',
+                cursor: step1Valid ? 'pointer' : 'not-allowed',
+                marginTop: '0.5rem', transition: 'all 0.2s',
+              }}>
                 Next → Security Posture
               </button>
             </>
           )}
 
-          {/* STEP 2 */}
+          {/* ── STEP 2 ── */}
           {step === 2 && (
             <>
               <h2 style={{ color: '#07d2f8', fontSize: '1.1rem', marginBottom: '1.6rem', fontWeight: '600' }}>
@@ -264,25 +244,16 @@ export default function SMBAssessment() {
                 { field: 'lastAudit',        label: 'Last professional security audit?',          opts: [{ value:'recent', label:'< 1 year' },{ value:'old', label:'1–3 years' },{ value:'never', label:'Never' }] },
               ].map(({ field, label, opts }) => (
                 <Field key={field} label={label}>
-                  <RadioGroup
-                    field={field}
-                    options={opts}
-                    value={(form as any)[field]}
-                    onChange={update}
-                  />
+                  <RadioGroup field={field} options={opts} value={(form as any)[field]} onChange={update} />
                 </Field>
               ))}
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                 <button onClick={() => setStep(1)} style={{
-                  flex: 1, padding: '0.9rem',
-                  background: 'transparent',
-                  border: '1px solid rgba(7,210,248,0.3)',
-                  borderRadius: '10px', color: '#07d2f8',
-                  fontWeight: '600', cursor: 'pointer',
-                }}>
-                  ← Back
-                </button>
+                  flex: 1, padding: '0.9rem', background: 'transparent',
+                  border: '1px solid rgba(7,210,248,0.3)', borderRadius: '10px',
+                  color: '#07d2f8', fontWeight: '600', cursor: 'pointer',
+                }}>← Back</button>
                 <button onClick={() => step2Valid && setStep(3)} style={{
                   flex: 2, padding: '0.9rem',
                   backgroundColor: step2Valid ? '#07d2f8' : '#333',
@@ -290,16 +261,15 @@ export default function SMBAssessment() {
                   border: 'none', borderRadius: '10px',
                   fontWeight: '700', cursor: step2Valid ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s',
-                }}>
-                  Generate Report →
-                </button>
+                }}>Generate Report →</button>
               </div>
             </>
           )}
 
-          {/* STEP 3 */}
+          {/* ── STEP 3 RESULTS ── */}
           {step === 3 && (
             <>
+              {/* Verdict banner */}
               <div style={{
                 background: `rgba(${verdict.color === '#4caf50' ? '76,175,80' : verdict.color === '#2196f3' ? '33,150,243' : verdict.color === '#ff9800' ? '255,152,0' : '244,67,54'},0.08)`,
                 border: `1px solid ${verdict.color}44`,
@@ -317,13 +287,12 @@ export default function SMBAssessment() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: verdict.color, fontSize: '2.2rem', fontWeight: '700', lineHeight: 1 }}>
-                    {score}
-                  </div>
+                  <div style={{ color: verdict.color, fontSize: '2.2rem', fontWeight: '700', lineHeight: 1 }}>{score}</div>
                   <div style={{ color: '#8994a9', fontSize: '0.7rem' }}>/ 100</div>
                 </div>
               </div>
 
+              {/* Score bar */}
               <div style={{ marginBottom: '1.8rem' }}>
                 <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
@@ -334,6 +303,7 @@ export default function SMBAssessment() {
                 </div>
               </div>
 
+              {/* Quick stats */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.8rem', marginBottom: '1.8rem' }}>
                 {[
                   { icon: '🔥', label: 'Firewall', val: form.hasFirewall === 'yes' ? 'Active' : 'Missing' },
@@ -341,8 +311,7 @@ export default function SMBAssessment() {
                   { icon: '💾', label: 'Backups',  val: form.backupFreq === 'daily' ? 'Daily' : form.backupFreq === 'weekly' ? 'Weekly' : 'Infrequent' },
                 ].map((stat) => (
                   <div key={stat.label} style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(7,210,248,0.12)',
+                    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(7,210,248,0.12)',
                     borderRadius: '10px', padding: '0.9rem', textAlign: 'center',
                   }}>
                     <div style={{ fontSize: '1.3rem', marginBottom: '4px' }}>{stat.icon}</div>
@@ -352,6 +321,7 @@ export default function SMBAssessment() {
                 ))}
               </div>
 
+              {/* Recommendations */}
               {recommendations.length > 0 ? (
                 <>
                   <p style={{ color: '#8994a9', fontSize: '0.72rem', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '0.8rem' }}>
@@ -362,8 +332,7 @@ export default function SMBAssessment() {
                       <div key={i} style={{
                         display: 'flex', alignItems: 'flex-start', gap: '0.7rem',
                         padding: '0.7rem 0.9rem',
-                        background: 'rgba(255,152,0,0.05)',
-                        border: '1px solid rgba(255,152,0,0.15)',
+                        background: 'rgba(255,152,0,0.05)', border: '1px solid rgba(255,152,0,0.15)',
                         borderRadius: '8px',
                       }}>
                         <span style={{ color: '#ff9800', fontSize: '0.8rem', marginTop: '1px', flexShrink: 0 }}>⚠️</span>
@@ -373,11 +342,7 @@ export default function SMBAssessment() {
                   </div>
                 </>
               ) : (
-                <div style={{
-                  padding: '1rem', borderRadius: '8px', textAlign: 'center',
-                  background: 'rgba(76,175,80,0.07)', border: '1px solid rgba(76,175,80,0.2)',
-                  color: '#4caf50', fontSize: '0.88rem', marginBottom: '1.5rem',
-                }}>
+                <div style={{ padding: '1rem', borderRadius: '8px', textAlign: 'center', background: 'rgba(76,175,80,0.07)', border: '1px solid rgba(76,175,80,0.2)', color: '#4caf50', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
                   🎉 Excellent security posture — no major gaps detected!
                 </div>
               )}
@@ -385,16 +350,13 @@ export default function SMBAssessment() {
               <button
                 onClick={() => {
                   setStep(1);
-                  setForm({ companyName:'', companyUrl:'', industry:'', employees:'',
-                    hasFirewall:'', hasMFA:'', lastAudit:'', encryptData:'',
-                    incidentPlan:'', backupFreq:'', remoteWork:'', securityTraining:'' });
+                  setForm({ companyName:'', companyUrl:'', industry:'', employees:'', hasFirewall:'', hasMFA:'', lastAudit:'', encryptData:'', incidentPlan:'', backupFreq:'', remoteWork:'', securityTraining:'' });
                 }}
                 style={{
-                  width: '100%', padding: '0.85rem',
-                  background: 'transparent',
-                  border: '1px solid rgba(7,210,248,0.3)',
-                  borderRadius: '10px', color: '#07d2f8',
-                  fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem',
+                  width: '100%', padding: '0.85rem', background: 'transparent',
+                  border: '1px solid rgba(7,210,248,0.3)', borderRadius: '10px',
+                  color: '#07d2f8', fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem',
+                  transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(7,210,248,0.08)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
