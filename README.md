@@ -16,7 +16,7 @@
 ---
 
 ## Domain
-**Cybersecurity for Small & Medium Businesses (SMBs)**
+**Cybersecurity & Ethical AI Systems**
 
 ---
 
@@ -32,6 +32,7 @@ scores risk intelligently, and delivers plain-English action steps.
 
 ## Our Solution — CyberShield
 
+**Cybersecurity for Small & Medium Businesses (SMBs)**
 CyberShield gives any SMB owner a **full security assessment in under
 60 seconds** — no login, no installation, no jargon.
 
