@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { askNova } from '../lib/nova';
 
+// ── Shared styles (defined OUTSIDE component) ──────────────────────────────
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.8rem 1rem',
   background: 'rgba(0,0,0,0.35)',
@@ -17,6 +19,7 @@ const labelStyle: React.CSSProperties = {
   textTransform: 'uppercase', marginBottom: '0.45rem',
 };
 
+// ── Sub-components defined OUTSIDE to prevent focus loss ──────────────────
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div style={{ marginBottom: '1.4rem' }}>
     <label style={labelStyle}>{label}</label>
@@ -52,6 +55,7 @@ const RadioGroup = ({
   </div>
 );
 
+// ── Main component ─────────────────────────────────────────────────────────
 export default function SMBAssessment() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -59,6 +63,10 @@ export default function SMBAssessment() {
     hasFirewall: '', hasMFA: '', lastAudit: '', encryptData: '',
     incidentPlan: '', backupFreq: '', remoteWork: '', securityTraining: '',
   });
+
+  // ── Nova AI summary state ────────────────────────────────────────────
+  const [aiSummary, setAiSummary]   = useState('');
+  const [aiLoading, setAiLoading]   = useState(false);
 
   const update = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -97,6 +105,54 @@ export default function SMBAssessment() {
                      form.encryptData && form.incidentPlan && form.backupFreq &&
                      form.remoteWork && form.securityTraining;
 
+  // ── Nova AI summary generator (proper async function) ────────────────
+  const generateAISummary = async (currentScore: number, currentRecs: string[]) => {
+    setAiLoading(true);
+    setAiSummary('');
+    const prompt = `
+Company: ${form.companyName} (${form.industry}, ${form.employees} employees)
+Security Score: ${currentScore}/100
+Verdict: ${currentScore >= 85 ? 'Excellent' : currentScore >= 70 ? 'Good' : currentScore >= 50 ? 'Needs Work' : 'At Risk'}
+Issues found: ${currentRecs.length > 0 ? currentRecs.join(', ') : 'None'}
+Firewall: ${form.hasFirewall}, MFA: ${form.hasMFA}, Encryption: ${form.encryptData}, Backups: ${form.backupFreq}
+Write a 3-sentence executive security summary for this SMB. Be specific and actionable.`;
+    try {
+      const summary = await askNova(prompt, 'smb_report');
+      setAiSummary(summary);
+    } catch {
+      setAiSummary('AI summary temporarily unavailable.');
+    }
+    setAiLoading(false);
+  };
+
+  // ── Go to step 3 and trigger AI ──────────────────────────────────────
+  const handleGenerateReport = () => {
+    if (!step2Valid) return;
+    setStep(3);
+    const currentScore = calcScore();
+    const currentRecs = [
+      form.hasFirewall !== 'yes'      && 'Deploy and configure a business-grade firewall.',
+      form.hasMFA !== 'yes'           && 'Enable Multi-Factor Authentication across all accounts.',
+      form.encryptData !== 'yes'      && 'Encrypt sensitive data at rest and in transit.',
+      form.incidentPlan !== 'yes'     && 'Create a formal incident response plan.',
+      form.backupFreq !== 'daily'     && 'Implement daily automated backups.',
+      form.securityTraining !== 'yes' && 'Run regular employee security awareness training.',
+      form.lastAudit !== 'recent'     && 'Schedule a professional security audit.',
+    ].filter(Boolean) as string[];
+    generateAISummary(currentScore, currentRecs);
+  };
+
+  const handleReset = () => {
+    setStep(1);
+    setAiSummary('');
+    setAiLoading(false);
+    setForm({
+      companyName: '', companyUrl: '', industry: '', employees: '',
+      hasFirewall: '', hasMFA: '', lastAudit: '', encryptData: '',
+      incidentPlan: '', backupFreq: '', remoteWork: '', securityTraining: '',
+    });
+  };
+
   return (
     <div style={{ minHeight: 'calc(100vh - 120px)', padding: '3rem 2rem' }}>
       <div style={{ maxWidth: '680px', margin: '0 auto' }}>
@@ -114,7 +170,7 @@ export default function SMBAssessment() {
             SMB Security Assessment
           </h1>
           <p style={{ color: '#8994a9', fontSize: '0.9rem' }}>
-            Get a comprehensive security analysis for your organization in 3 steps.
+            Get a comprehensive AI-powered security analysis in 3 steps.
           </p>
         </div>
 
@@ -254,7 +310,8 @@ export default function SMBAssessment() {
                   border: '1px solid rgba(7,210,248,0.3)', borderRadius: '10px',
                   color: '#07d2f8', fontWeight: '600', cursor: 'pointer',
                 }}>← Back</button>
-                <button onClick={() => step2Valid && setStep(3)} style={{
+                {/* ✅ Uses handleGenerateReport which triggers Nova */}
+                <button onClick={handleGenerateReport} style={{
                   flex: 2, padding: '0.9rem',
                   backgroundColor: step2Valid ? '#07d2f8' : '#333',
                   color: step2Valid ? '#000' : '#666',
@@ -293,7 +350,7 @@ export default function SMBAssessment() {
               </div>
 
               {/* Score bar */}
-              <div style={{ marginBottom: '1.8rem' }}>
+              <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', width: `${score}%`,
@@ -301,6 +358,34 @@ export default function SMBAssessment() {
                     borderRadius: '4px', transition: 'width 0.8s ease',
                   }} />
                 </div>
+              </div>
+
+              {/* 🤖 AI Executive Summary — properly rendered */}
+              <div style={{
+                background: 'rgba(7,210,248,0.04)', border: '1px solid rgba(7,210,248,0.2)',
+                borderRadius: '12px', padding: '1.2rem', marginBottom: '1.5rem',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg,transparent,#07d2f8,transparent)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.7rem' }}>
+                  <span>🤖</span>
+                  <p style={{ color: '#8994a9', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
+                    AI Executive Summary · Powered by Amazon Nova
+                  </p>
+                </div>
+                {aiLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <style>{`@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}`}</style>
+                    {[0, 1, 2].map(i => (
+                      <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#07d2f8', animation: `blink 1.2s ${i * 0.2}s infinite` }} />
+                    ))}
+                    <span style={{ color: '#8994a9', fontSize: '0.82rem' }}>Nova is generating your executive summary...</span>
+                  </div>
+                ) : aiSummary ? (
+                  <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.7, margin: 0 }}>{aiSummary}</p>
+                ) : (
+                  <p style={{ color: '#8994a9', fontSize: '0.82rem', margin: 0 }}>AI summary unavailable.</p>
+                )}
               </div>
 
               {/* Quick stats */}
@@ -347,17 +432,12 @@ export default function SMBAssessment() {
                 </div>
               )}
 
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setForm({ companyName:'', companyUrl:'', industry:'', employees:'', hasFirewall:'', hasMFA:'', lastAudit:'', encryptData:'', incidentPlan:'', backupFreq:'', remoteWork:'', securityTraining:'' });
-                }}
-                style={{
-                  width: '100%', padding: '0.85rem', background: 'transparent',
-                  border: '1px solid rgba(7,210,248,0.3)', borderRadius: '10px',
-                  color: '#07d2f8', fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem',
-                  transition: 'background 0.2s',
-                }}
+              <button onClick={handleReset} style={{
+                width: '100%', padding: '0.85rem', background: 'transparent',
+                border: '1px solid rgba(7,210,248,0.3)', borderRadius: '10px',
+                color: '#07d2f8', fontWeight: '600', cursor: 'pointer', fontSize: '0.88rem',
+                transition: 'background 0.2s',
+              }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(7,210,248,0.08)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
