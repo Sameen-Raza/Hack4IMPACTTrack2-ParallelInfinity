@@ -22,10 +22,10 @@ async function invokeNova(systemText: string, userText: string, maxTokens = 800)
       messages: [{ role: 'user', content: [{ text: userText }] }],
       system: [{ text: systemText }],
       inferenceConfig: {
-        maxTokens,
-        temperature: 0.3,
-        topP: 0.9,
-      },
+     maxTokens: 800,
+     temperature: 0.1,
+     topP: 0.95,
+    },
     }),
   });
 
@@ -61,7 +61,7 @@ Respond ONLY with valid JSON in this exact format, no markdown, no explanation o
 {
   "overall_score": <number 0-100>,
   "risk_level": "<Low Risk|Medium Risk|High Risk>",
-  "summary": "<2-3 sentence plain English summary>",
+  "summary": "<2-3 sentence plain English summary including specific safety advice for this target>",
   "components": [
     {"name": "Email Domain Reputation", "score": <0-100>, "description": "<explanation>"},
     {"name": "Breach Risk", "score": <0-100>, "description": "<explanation>"},
@@ -85,7 +85,7 @@ Respond ONLY with valid JSON in this exact format, no markdown, no explanation o
 {
   "overall_score": <number 0-100>,
   "risk_level": "<Low Risk|Medium Risk|High Risk>",
-  "summary": "<2-3 sentence plain English summary>",
+  "summary": "<2-3 sentence plain English summary including specific safety advice for this target>",
   "components": [
     {"name": "SSL Security", "score": <0-100>, "description": "<explanation>"},
     {"name": "Domain Reputation", "score": <0-100>, "description": "<explanation>"},
