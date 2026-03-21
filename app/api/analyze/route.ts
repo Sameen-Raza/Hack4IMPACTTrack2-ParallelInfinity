@@ -77,9 +77,10 @@ Respond ONLY with valid JSON in this exact format, no markdown, no explanation o
 Evaluate:
 1. Is HTTPS properly configured?
 2. Domain reputation and trustworthiness
-3. Phishing or malware indicators
+3. Phishing or malware indicators — including if this domain is commonly impersonated by attackers
 4. SSL and certificate validity signals
-5. Overall security assessment
+5. Whether users should be cautious about phishing emails pretending to be this domain
+6. Overall security assessment and specific safety advice
 
 Respond ONLY with valid JSON in this exact format, no markdown, no explanation outside JSON:
 {
