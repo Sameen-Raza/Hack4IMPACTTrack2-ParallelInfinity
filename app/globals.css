@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --cyan: #07d2f8;
+  --cyan-dim: rgba(7, 210, 248, 0.2);
+  --gray: #8994a9;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: rgba(7,210,248,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(7,210,248,0.5); }
+
+/* ── Animations ────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+
+/* ── Skeleton loader ───────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(7,210,248,0.06) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* ── Mobile responsive grid ────────────────────── */
+@media (max-width: 640px) {
+  .result-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .rec-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .action-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .history-stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .history-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Input focus glow ──────────────────────────── */
+input:focus {
+  border-color: #07d2f8 !important;
+  box-shadow: 0 0 0 3px rgba(7,210,248,0.1);
+  outline: none;
+}
+
+/* ── Button press effect ───────────────────────── */
+button:active {
+  transform: scale(0.98);
 }
