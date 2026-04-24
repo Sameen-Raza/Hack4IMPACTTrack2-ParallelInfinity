@@ -8,10 +8,10 @@
 
 | Name | Roll Number |
 |---|---|
-| Sameen Raza | 23053155 |
-| Samisha Jaiswal | 23053156 |
-| Jai Sharma | 23052077 |
-| Ayush Sinha | 23051983 |
+| SAMEEN RAZA | 23053155 |
+| SAMISHA JAISWAL | 23053156 |
+| JAI SHARMA | 23052077 |
+| AYUSH SINHA | 23051983 |
 
 ---
 
